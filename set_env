@@ -1,0 +1,10 @@
+#!/bin/sh
+
+export TOPDIR=${PWD}
+export ARCH=arm
+export CROSS_COMPILE=arm-linux-gnueabihf-
+
+echo ${PATH} | grep  gcc-linaro-4.9.4-2017.01-x86_64_arm-linux-gnueabihf >> /dev/null
+if [ "$?" -ne 0 ]; then
+    export PATH=${PATH}:${PWD}/.gcc-linaro-4.9.4-2017.01-x86_64_arm-linux-gnueabihf/bin
+fi

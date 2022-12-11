@@ -26,6 +26,16 @@
 				>;
 		status = "okay";
 	};
+
+	beep {
+		#address-cell = <1>;
+		#size-cell = <1>;
+		compatible = "alientek_beep";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_beep>;
+		gpio = <&gpio5 1 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 &clks {
@@ -108,6 +118,12 @@
 			MX6UL_PAD_ENET2_TX_DATA0__ENET2_TDATA00	0x1b0b0
 			MX6UL_PAD_ENET2_TX_DATA1__ENET2_TDATA01	0x1b0b0
 			MX6UL_PAD_ENET2_TX_CLK__ENET2_REF_CLK2	0x4001b031
+		>;
+	};
+
+	pinctrl_beep: beepgrp {
+		fsl,pins = <
+			MX6ULL_PAD_SNVS_TAMPER1__GPIO5_IO01 0x10B0 /* beep */
 		>;
 	};
 };

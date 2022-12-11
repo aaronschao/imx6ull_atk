@@ -13,13 +13,8 @@
 #include <linux/module.h>
 #include <linux/ide.h>
 #include <linux/cdev.h>
-
-/*! 寄存器物理地址 */
-#define CCM_CCGR1_BASE                      0x020C406C
-#define SW_MUX_GPIO1_IO03_BASE              0x020E0068
-#define SW_PAD_GPIO1_IO03_BASE              0x020E02F4
-#define GPIO1_DR_BASE                       0x0209C000
-#define GPIO1_GDIR_BASE                     0x0209C004
+#include <linux/of.h>
+#include <linux/of_address.h>
 
 /*! 映射后的寄存器虚拟地址指针 */
 static void __iomem *IMX6ULL_CCM_CCGR1 = NULL;
@@ -35,6 +30,7 @@ typedef struct {
     struct device *device;              /*!< 设备 */
     int major;                          /*!< 主设备号 */
     int minor;                          /*!< 次设备号 */
+    struct device_node *nd;             /*!< 设备节点 */
 }led_dev_t;
 
 static led_dev_t led_dev = {0};
@@ -116,29 +112,63 @@ static int led_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
-/*! 设备操作函数 */
-static struct file_operations led_fops = {
-    .owner = THIS_MODULE,
-    .open = led_open,
-    .read = led_read,
-    .write = led_write,
-    .release = led_release,
-};
-
 /*!
- * @brief   驱动入口函数
+ * @brief 关于led的GPIO初始化
  * @return int
  */
-static int __init led_init(void)
+static int __led_init(void)
 {
     u32 val = 0;
+    int iret = 0;
+    const char *str = NULL;
+    struct property *proper = NULL;
 
+    led_dev.nd = of_find_node_by_path("/led");
+    if(NULL == led_dev.nd)
+    {
+        printk(KERN_ERR"led node not find\n");
+        return -EINVAL;
+    }
+    else
+    {
+        printk(KERN_INFO"led node find\n");
+    }
+
+    proper = of_find_property(led_dev.nd, "compatible", NULL);
+    if(NULL == proper)
+    {
+        printk(KERN_ERR"compatible not find\n");
+        return -EINVAL;
+    }
+    else
+    {
+        printk(KERN_INFO"compatible find, value:%s\n", (char *)proper->value);
+    }
+
+    iret = of_property_read_string(led_dev.nd, "status", &str);
+    if(iret < 0)
+    {
+        printk(KERN_ERR"get status fail\n");
+        return -EINVAL;
+    }
+    else
+    {
+        printk(KERN_INFO"status:%s\n", str);
+    }
     /* 寄存器地址映射 */
-    IMX6ULL_CCM_CCGR1 = ioremap(CCM_CCGR1_BASE, 4);
-    SW_MUX_GPIO1_IO03 = ioremap(SW_MUX_GPIO1_IO03_BASE, 4);
-    SW_PAD_GPIO1_IO03 = ioremap(SW_PAD_GPIO1_IO03_BASE, 4);
-    GPIO1_DR = ioremap(GPIO1_DR_BASE, 4);
-    GPIO1_GDIR = ioremap(GPIO1_GDIR_BASE, 4);
+#if 0
+    IMX6ULL_CCM_CCGR1 = ioremap(regdata[0], regdata[1]);
+    SW_MUX_GPIO1_IO03 = ioremap(regdata[2], regdata[3]);
+    SW_PAD_GPIO1_IO03 = ioremap(regdata[4], regdata[5]);
+    GPIO1_DR =ioremap(regdata[6], regdata[7]);
+    GPIO1_GDIR = ioremap(regdata[8], regdata[9]);
+#else
+    IMX6ULL_CCM_CCGR1 = of_iomap(led_dev.nd, 0);
+    SW_MUX_GPIO1_IO03 = of_iomap(led_dev.nd, 1);
+    SW_PAD_GPIO1_IO03 = of_iomap(led_dev.nd, 2);
+    GPIO1_DR = of_iomap(led_dev.nd, 3);
+    GPIO1_GDIR = of_iomap(led_dev.nd, 4);
+#endif
 
     /* 使能GPIO1时钟 */
     val = readl(IMX6ULL_CCM_CCGR1);
@@ -167,6 +197,24 @@ static int __init led_init(void)
     val |= (0x01 << 3);
     writel(val, GPIO1_DR);
 
+    return 0;
+}
+
+/*! 设备操作函数 */
+static struct file_operations led_fops = {
+    .owner = THIS_MODULE,
+    .open = led_open,
+    .read = led_read,
+    .write = led_write,
+    .release = led_release,
+};
+
+/*!
+ * @brief   驱动入口函数
+ * @return int
+ */
+static int __init led_init(void)
+{
     /* 注册字符设备驱动 */
 #if 0
     /* 手动创建设备节点 mknod /dev/led c 200 0 */
@@ -211,7 +259,7 @@ static int __init led_init(void)
         return PTR_ERR(led_dev.device);
     }
 #endif
-    return 0;
+    return __led_init();
 }
 
 /*!
